@@ -1,0 +1,6 @@
+review_id,reviewer,date,rating,review_text,aspect
+1,John Doe,2026-05-12,1,"Bought this powerbank 3 months ago. It worked fine initially, but now it starts overheating excessively while charging my phone.",Hardware
+2,Sarah Smith,2026-05-15,1,"Extremely disappointed with warranty. When I reached out to customer support, they gave excuses claiming internal damage not in policy.",Warranty
+3,Mike Johnson,2026-05-20,5,"Great battery capacity! Held charge for 4 full charges on my trip.",Battery
+4,Emily Davis,2026-06-01,2,"Powerbank gets burning hot after 20 minutes of fast charging. Feels like a safety hazard.",Hardware
+5,Alex Turner,2026-06-10,1,"Warranty request rejected. Company claimed liquid damage internally even though I never exposed it to water.",Warranty

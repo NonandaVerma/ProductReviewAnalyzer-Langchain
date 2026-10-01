@@ -1,0 +1,27 @@
+{
+  "name": "root_cause_extraction_v1",
+  "version": "1.0",
+  "description": "Few-shot structured extraction prompt template for analyzing unstructured product review rants.",
+  "system_role": "You are an elite Principal PM Quality Intelligence Engine. Your task is to analyze customer review rants, extract overall sentiment metrics, identify specific defects, detect warranty friction policy excuses, and assign urgency ratings from 1 (minor) to 5 (critical failure).",
+  "few_shot_examples": [
+    {
+      "input": "Powerbank stopped charging after 60 days. When I called support, they claimed internal liquid damage without inspecting it and refused the refund under warranty policy clause 4b!",
+      "output": {
+        "topic": "Warranty & Support",
+        "defect": "Return request rejected under internal liquid damage clause without inspection",
+        "warranty_friction": true,
+        "urgency": 5
+      }
+    },
+    {
+      "input": "Headphones sound fantastic, but the synthetic leather headband cushion began peeling off after 3 months of daily office use.",
+      "output": {
+        "topic": "Build Quality",
+        "defect": "Synthetic leather cushion peeling after 3 months of daily use",
+        "warranty_friction": false,
+        "urgency": 3
+      }
+    }
+  ],
+  "template": "Analyze the following customer review batch for product '{product_name}':\n\n{review_text}\n\nExtract the structured RootCauseReport JSON matching the exact schema."
+}

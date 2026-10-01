@@ -1,0 +1,30 @@
+# Purpose: Specifies files and directories that Git should ignore.
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment and Secrets
+.env
+*.env.local
+
+# Python Bytecode and Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Vector Databases & Indexes
+chroma_db/
+.chroma/
+faiss_index/
+
+# Streamlit Local Runtime
+.streamlit/secrets.toml
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
