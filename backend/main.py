@@ -12,28 +12,42 @@ Purpose:
   - POST /api/chat                   : Grounded RAG QA conversational endpoint with persistent MongoDB chat memory
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import io
 
 from config import settings
-from database.mongo import save_product_ledger, update_product_status, fetch_all_products, fetch_product_by_id, save_chat_message
-from core.schemas import StatusUpdateRequest, ChatRequest
+from database.mongo import (
+    save_product_ledger, update_product_status, fetch_all_products, fetch_product_by_id,
+    save_chat_message, create_user, get_user_by_email, ensure_user_indexes,
+)
+from core.schemas import StatusUpdateRequest, ChatRequest, RegisterRequest, LoginRequest
 from core.loaders import load_reviews_from_bytes, split_documents
 from core.vectorstore import add_documents_to_vectorstore
 from core.chains import run_batch_extraction_chain, run_rag_qa_chain
+from core.auth import hash_password, verify_password, create_access_token, get_current_user
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        ensure_user_indexes()
+    except Exception as e:
+        print(f"[WARN] Could not ensure MongoDB user indexes at startup: {e}")
+    yield
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="FastAPI REST API Engine powered by LangChain LCEL & MongoDB Atlas"
+    description="FastAPI REST API Engine powered by LangChain LCEL & MongoDB Atlas",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[settings.FRONTEND_ORIGIN],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -42,8 +56,41 @@ app.add_middleware(
 def root():
     return {"status": "online", "project": settings.PROJECT_NAME, "version": settings.VERSION}
 
+@app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
+def register(req: RegisterRequest):
+    """Registers a new PM user account. Does not auto-login; caller signs in separately."""
+    if get_user_by_email(req.email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    hashed = hash_password(req.password)
+    try:
+        user = create_user(req.name, req.email, hashed)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    return {"status": "success", "user": {"id": str(user["_id"]), "name": user["name"], "email": user["email"]}}
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    """Validates credentials and issues a JWT access token."""
+    user = get_user_by_email(req.email)
+    if not user or not verify_password(req.password, user["hashed_password"]):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    token = create_access_token(subject=str(user["_id"]), email=user["email"])
+    return {
+        "status": "success",
+        "access_token": token,
+        "user": {"id": str(user["_id"]), "name": user["name"], "email": user["email"]},
+    }
+
+@app.get("/api/auth/me")
+def me(current_user: dict = Depends(get_current_user)):
+    """Returns the currently authenticated user, resolved from the Bearer token."""
+    user = get_user_by_email(current_user["email"])
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return {"status": "success", "user": {"id": str(user["_id"]), "name": user["name"], "email": user["email"]}}
+
 @app.get("/api/products")
-def list_products():
+def list_products(current_user: dict = Depends(get_current_user)):
     """Use Case 2: Returns all product ledgers dynamically from MongoDB Atlas."""
     try:
         products = fetch_all_products()
@@ -52,7 +99,7 @@ def list_products():
         return {"status": "error", "message": str(e), "products": []}
 
 @app.get("/api/products/{product_id}")
-def get_product_details(product_id: str):
+def get_product_details(product_id: str, current_user: dict = Depends(get_current_user)):
     """Use Case 2: Returns granular product metadata and Pydantic root-cause metrics by product_id."""
     try:
         product = fetch_product_by_id(product_id)
@@ -63,7 +110,7 @@ def get_product_details(product_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/status")
-def change_product_status(req: StatusUpdateRequest):
+def change_product_status(req: StatusUpdateRequest, current_user: dict = Depends(get_current_user)):
     """Updates PM decision status in MongoDB Atlas."""
     try:
         update_product_status(req.product_id, req.status)
@@ -75,7 +122,8 @@ def change_product_status(req: StatusUpdateRequest):
 async def upload_csv_file(
     file: UploadFile = File(...),
     product_name: str = Form(...),
-    category: str = Form(...)
+    category: str = Form(...),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Use Case 1 (Batch Data Extraction & DB Persistence) & Use Case 3 (Automated Risk Tagging):
@@ -123,7 +171,7 @@ async def upload_csv_file(
         return {"status": "success", "product_id": product_id, "data": saved_doc}
 
 @app.post("/api/chat")
-def chat_with_product_reviews(req: ChatRequest):
+def chat_with_product_reviews(req: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
     Grounded Conversational RAG QA endpoint.
     Performs ChromaDB MMR context retrieval, injects runtime chat history via MessagesPlaceholder,

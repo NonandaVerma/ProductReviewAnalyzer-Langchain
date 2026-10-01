@@ -37,6 +37,16 @@ EMBEDDING_PROVIDER=nvidia
 NVIDIA_API_KEY=nvapi-your_nvidia_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL_NAME=gemini-2.0-flash
+
+# Auth Settings
+JWT_SECRET_KEY=<generate via: python -c "import secrets; print(secrets.token_hex(32))">
+JWT_EXPIRE_MINUTES=1440
+FRONTEND_ORIGIN=http://localhost:3000
+```
+
+Also create `frontend/.env.local`:
+```env
+BACKEND_API_URL=http://localhost:8000
 ```
 
 ---

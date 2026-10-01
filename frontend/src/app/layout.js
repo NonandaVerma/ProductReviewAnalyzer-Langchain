@@ -1,7 +1,6 @@
 import { Montserrat } from 'next/font/google';
 import './globals.css';
-import Header from '@/components/layout/Header';
-import Sidebar from '@/components/layout/Sidebar';
+import { AuthProvider } from '@/context/AuthContext';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -23,11 +22,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={montserrat.variable}>
       <body className="font-sans bg-[#F4F7FE] text-[#2B3674] antialiased min-h-screen">
-        <Header />
-        <Sidebar />
-        <main className="pt-[92px] pl-20 lg:pl-72 pr-6 pb-12 transition-all max-w-[1440px] mx-auto">
-          {children}
-        </main>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

@@ -7,7 +7,7 @@ Purpose:
   primary complaint topics, specific defects, warranty friction flags, and urgency scores.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 
 class DefectItem(BaseModel):
@@ -49,3 +49,14 @@ class ChatRequest(BaseModel):
     """Request schema for RAG chat assistant queries."""
     product_id: str = Field(..., description="Product ID context")
     question: str = Field(..., description="User query text")
+
+class RegisterRequest(BaseModel):
+    """Request schema for new PM user account registration."""
+    name: str = Field(..., min_length=1, description="Full name of the PM user")
+    email: EmailStr = Field(..., description="Unique login email")
+    password: str = Field(..., min_length=8, max_length=72, description="Plaintext password (hashed server-side)")
+
+class LoginRequest(BaseModel):
+    """Request schema for PM user login."""
+    email: EmailStr
+    password: str

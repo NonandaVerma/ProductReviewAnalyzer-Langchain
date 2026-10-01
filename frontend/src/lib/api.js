@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
+// Same-origin now: everything goes through this app's own Route Handlers
+// under /api/*, which read the httpOnly session cookie server-side and
+// proxy to FastAPI with the Bearer header attached. The browser never
+// talks to FastAPI (:8000) directly anymore.
 const api = axios.create({
-  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,11 +33,9 @@ export const uploadCsvFile = async (file, productName, category) => {
   formData.append('category', category);
 
   try {
-    const res = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Let axios/the browser set Content-Type (with boundary) for FormData —
+    // do not set it manually, it will be missing the boundary.
+    const res = await api.post('/api/upload', formData);
     return res.data;
   } catch (err) {
     console.error('Failed to upload CSV file:', err);

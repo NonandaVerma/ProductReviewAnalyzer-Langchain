@@ -9,6 +9,7 @@ Purpose:
 """
 
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
 import datetime
 from config import settings
 
@@ -96,3 +97,31 @@ def fetch_chat_history(product_id: str):
     db = get_db()
     chat_col = db["chat_history"]
     return list(chat_col.find({"product_id": product_id}, {"_id": 0}).sort("timestamp", 1))
+
+def ensure_user_indexes():
+    """Idempotent unique index on users.email. Safe to call on every app startup."""
+    db = get_db()
+    db["users"].create_index("email", unique=True, name="uniq_email")
+
+def create_user(name: str, email: str, hashed_password: str) -> dict:
+    """Inserts a new PM user account. Raises ValueError if the email is already registered."""
+    db = get_db()
+    users_col = db["users"]
+    doc = {
+        "name": name,
+        "email": email.lower().strip(),
+        "hashed_password": hashed_password,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    try:
+        result = users_col.insert_one(doc)
+    except DuplicateKeyError:
+        raise ValueError("Email already registered")
+    doc["_id"] = str(result.inserted_id)
+    return doc
+
+def get_user_by_email(email: str):
+    """Fetches a user account by email, or None if not found."""
+    db = get_db()
+    users_col = db["users"]
+    return users_col.find_one({"email": email.lower().strip()})
